@@ -3,10 +3,12 @@ library(ggplot2)
 library(readxl)
 library(dplyr)
 library(tidyr)
+library(ggpubr)
+library(bootstrap)
+
 
 setwd("~/Documents/OneDrive - University of Copenhagen/Whooping_Crane/")
 metadata <- read_excel("Metadata_crane.xlsx", sheet = 1)
-
 
 samples<- read.table("Files/snpEff/Samples_down")
 
@@ -271,9 +273,6 @@ g <- g + geom_boxplot() + theme_classic() + facet_grid(Class~., scales="free_y")
   
 g
 
-
-
-
 counts_down <- counts_df[,c("SampleID", "Class",
                            "het_refanc_5","hom_refanc_5","Total_5",
                            "HetCountNormLow_5","HomCountNormLow_5","TotalNormLow_5")]
@@ -344,52 +343,10 @@ g1
 ggarrange(g,g1, nrow=2,align="v", heights = c(1.2,1), labels=c("A","B"))
 ggsave("Manuscript/Plots_supplementary/FigureS4_Downsampling_load_5_10_15_normalization.pdf", height = 6, width = 10)
 
-#With historical and modern------
-all_data <- read.csv2("Files/snpEff/Counts_totalCoverage.csv") # Add info on historical samples
-all_data <- all_data[,c("SampleID", "Class",
-                        "het_refanc_5","hom_refanc_5","Total_5",
-                        "HetCountNormLow_5","HomCountNormLow_5","TotalNormLow_5", "Dataset")]
 
-historical_samples <- c("Grus27863","Grus71441","MCZ-220028", "MCZ-301263","MCZ-35730",
-                        "MCZ-42511","MCZ-46873" )
+#Change in Frequency of deleterious variation through time-----
 
-all_data <- all_data[which(all_data$SampleID%in%historical_samples),] # keep only the historical samples in the whole dataset
-total_counts <- rbind.data.frame(all_data,counts_down)
-
-total_counts_down <-total_counts[-which(total_counts$SampleID%in%samples_cov[-c(3,6)]),]
-
-
-total_counts_df3 <- total_counts_down[,c("SampleID", "Class",
-                                        "HetCountNormLow_5","HomCountNormLow_5","TotalNormLow_5","Dataset")]
-
-
-counts_df_gather <- gather(total_counts_df3, State, Count, -SampleID,  -Class, -Dataset,)
-
-countsnorm_df_metadata <- merge(counts_df_gather, metadata[,c("SampleID","Category")], by="SampleID") 
-countsnorm_df_metadata$Class <- factor(countsnorm_df_metadata$Class, levels=c("Low","Moderate","High"), ordered = T)
-
-countsnorm_df_metadata$Type <- countsnorm_df_metadata$Category
-countsnorm_df_metadata$Type <- gsub("Founders_wildborn","Modern",countsnorm_df_metadata$Type)
-countsnorm_df_metadata$Type <- gsub("Late_captive","Modern",countsnorm_df_metadata$Type)
-countsnorm_df_metadata$Type <- gsub("Early_captive","Modern",countsnorm_df_metadata$Type)
-countsnorm_df_metadata$Type <- gsub("Wild","Modern",countsnorm_df_metadata$Type)
-
-countsnorm_df_metadata$State <- gsub("HetCountNormLow_5","Heterozygous Load",countsnorm_df_metadata$State)
-countsnorm_df_metadata$State <- gsub("HomCountNormLow_5","Homozygous Load",countsnorm_df_metadata$State)
-countsnorm_df_metadata$State <- gsub("TotalNormLow_5","Total Load",countsnorm_df_metadata$State)
-
-
-g_hist <- ggplot(countsnorm_df_metadata[countsnorm_df_metadata$Class!="Low",], 
-            aes(Type, Count, color=Type))
-g_hist <- g_hist + geom_boxplot(outlier.shape = NA) + geom_jitter()+theme_classic() + facet_grid(Class~State, scales="free_y",space="free_x") + xlab("") + 
-   theme(legend.position = "none") + 
-  stat_compare_means() + ylab("Normalized Allele Counts")+
-  scale_color_manual(values= c("#6d466bff","#EB9486" ))
-g_hist
-
-#Change in Frequency of deleterious variation through time. 
-
-listfreq3 <- read.csv2("Files/Change_frequency.csv")
+listfreq3 <- read.csv2("Files/Change_frequency.csv") # removed sites exclusivly modern
 
 listfreq3$Type <- factor(listfreq3$Type, levels=c("Low","Moderate","High"), ordered = T)
 
@@ -412,9 +369,307 @@ sd(listfreq3[listfreq3$Type=="High",]$Difference)
 mean(listfreq3[listfreq3$Type=="Moderate",]$Difference)
 mean(listfreq3[listfreq3$Type=="Low",]$Difference)
 
+# Rxy ------
+#read files
+high_freq <- read.csv2("Files/Frequency_derived_high.csv", sep=",") # obtained in Load_frequencychange.R
+moderate_freq <- read.csv2("Files/Frequency_derived_moderate.csv", sep=",")
+low_freq <- read.csv2("Files/Frequency_derived_low.csv", sep=",")
+
+
+high_freq$Type <- "High"
+moderate_freq$Type <- "Moderate"
+low_freq$Type <- "Low"
+
+Frequencies_all <- rbind(high_freq,moderate_freq,low_freq)
+Frequencies_all$FreqHist <- as.numeric(Frequencies_all$FreqHist)
+Frequencies_all$FreqModern <- as.numeric(Frequencies_all$FreqModern)
+Frequencies_all <- Frequencies_all[-which(Frequencies_all$FreqHist==0 & Frequencies_all$FreqModern>0),] #remove sites present only in modern
+
+##Rxy
+types <- c("High","Moderate", "Low")
+
+Rxy_frame<-data.frame(matrix(ncol = 4, nrow = 0))
+Rxy_jn<-data.frame(matrix(ncol = 3, nrow = 0))
+
+y<-Frequencies_all$FreqHist*(1-Frequencies_all$FreqModern)
+x<-Frequencies_all$FreqModern*(1-Frequencies_all$FreqHist)
+xdata_total<-cbind.data.frame(x,y, Type=Frequencies_all$Type)
+
+for (j in types){
+  print(j)
+  xdata <- xdata_total[xdata_total$Type==j,]
+  size <- floor(length(xdata$x)*0.01) # take 1% of the sites for the jacknife
+  size <- 1
+  rxy<-function(a,xdata,b){
+    sum(xdata[seq(a,a+(size-1),1),b])
+  } 
+  rx_ry<-data.frame()
+  for(i in c(1:100)) {
+    rx_ry[i,1]<-rxy(size*(i-1)+1,xdata,1)
+    rx_ry[i,2]<-rxy(size*(i-1)+1,xdata,2)
+  } 
+  
+  rat<-function(c,rx_ry){sum(rx_ry[c,1])/sum(rx_ry[c,2])}
+  jn_h<-jackknife(1:100,rat,rx_ry) #do jackknife for dataframe rx_ry with the function of rat for 100 times
+  Rxy_jn<-rbind(Rxy_jn, cbind(jn_h$jack.values, rep(j, 100)))
+  Rxy_frame<-rbind(Rxy_frame, cbind(j, sum(xdata$x)/sum(xdata$y), jn_h$jack.se))
+} 
+
+colnames(Rxy_frame)<-c("Type","Rxy", "SE")
+Rxy_frame$Rxy <- as.numeric(Rxy_frame$Rxy)
+Rxy_frame$SE <- as.numeric(Rxy_frame$SE)
+
+# Normalize by low 
+Rxy_frame_low <- Rxy_frame[Rxy_frame$Type=="Low",]
+Rxy_frame_notlow <- Rxy_frame[Rxy_frame$Type!="Low",]
+
+Rxy_frame_normalized<- data.frame(Type=c("High","Moderate"),
+                                  Rxy_norm=as.numeric(Rxy_frame_notlow$Rxy)/as.numeric(Rxy_frame_low$Rxy),
+                                  SE_norm=as.numeric(Rxy_frame_notlow$S)/as.numeric(Rxy_frame_low$Rxy))
+
+
+ggplot(Rxy_frame_normalized, aes(x=Type , y=Rxy_norm, col=Type)) +
+  #  geom_bar(position = "dodge", stat = "identity", width=0.7) +
+  geom_point( position=position_dodge(.75)) +
+  geom_errorbar(aes(ymin=Rxy_norm-2*SE_norm, ymax=Rxy_norm+2*SE_norm), width=.2, position=position_dodge(.75)) +
+  coord_flip() + 
+  theme_classic() + scale_color_manual(values=c("#696047","#7dde92")) +
+  theme(panel.grid.major=element_line(colour=NA), legend.position="bottom")
+
+
+cut.off = 1
+Rxy_frame_normalized$Rxy_norm_2 <- Rxy_frame_normalized$Rxy_norm -1
+
+rxy_plot <- ggplot(Rxy_frame_normalized, aes(Type, Rxy_norm_2, fill=Type))
+rxy_plot <- rxy_plot + geom_col(position = "dodge") + theme_classic()+
+  geom_errorbar(aes(ymin=(Rxy_norm-1)-2*SE_norm, ymax=(Rxy_norm-1)+2*SE_norm), width=.2, position=position_dodge(.75)) +
+  geom_hline(linetype="dashed",yintercept = 0) +scale_fill_manual(values=c("#696047","#7dde92")) +
+  scale_y_continuous(labels = function(x) x + cut.off) +
+  xlab("") + ylab("Rxy (Modern/Historical)") + theme(legend.position = "none")
+rxy_plot
+
+Rxy_frame$Rxy_2 <- Rxy_frame$Rxy -1
+rxy_plot2 <- ggplot(Rxy_frame, aes(Type, Rxy_2, fill=Type))
+rxy_plot2 <- rxy_plot2 + geom_col(position = "dodge") + theme_classic()+
+  geom_errorbar(aes(ymin=Rxy_2-2*SE, ymax=Rxy_2+2*SE), width=.2, position=position_dodge(.75)) +
+  geom_hline(linetype="dashed",yintercept = 0) +scale_fill_manual(values=c("#696047","#7dde92","#4f7cac")) +
+  scale_y_continuous(labels = function(x) x + cut.off) +
+  xlab("His") + ylab("Rxy (normalized by Low)") + theme(legend.position = "none")
+rxy_plot
+
+
+ggplot(Rxy_frame, aes(x=Type , y=Rxy, col=Type)) +
+  #  geom_bar(position = "dodge", stat = "identity", width=0.7) +
+  geom_point( position=position_dodge(.75)) +
+  geom_errorbar(aes(ymin=Rxy-2*SE, ymax=Rxy+2*SE), width=.2, position=position_dodge(.75)) +
+  coord_flip() +
+  theme_classic() +scale_color_manual(values=c("#4f7cac","#7dde92","#696047")) +
+  theme(panel.grid.major=element_line(colour=NA), legend.position="bottom")
+
 
 # Final Figure ----
-ggarrange(g_hist,freq_dist, nrow=1, labels=c("A","B"),widths = c(2,1))
+ggarrange(g_hist, ggarrange(freq_dist, rxy_plot, nrow=2, labels=c("","C")) ,nrow=1, labels=c("A","B"),widths = c(2,1))
 
-ggsave("Manuscript/MainFigures/Figure2.pdf", height = 5, width = 10)
+ggsave("Manuscript/MainFigures/Figure2.pdf", height = 6, width = 10)
 
+
+# Rxy with only modern samples -----
+#read files
+high_freq <- read.csv2("Files/Frequency_derived_high_captivewild.csv", sep=",") # obtained in Load_frequencychange.R
+moderate_freq <- read.csv2("Files/Frequency_derived_moderate_captivewild.csv", sep=",")
+low_freq <- read.csv2("Files/Frequency_derived_low_captivewild.csv", sep=",")
+
+high_freq$Type <- "High"
+moderate_freq$Type <- "Moderate"
+low_freq$Type <- "Low"
+
+Frequencies_all <- rbind.data.frame(high_freq,moderate_freq,low_freq)
+Frequencies_all$FreqFounders <- as.numeric(Frequencies_all$FreqFounders)
+Frequencies_all$FreqEarlyCaptive <- as.numeric(Frequencies_all$FreqEarlyCaptive)
+Frequencies_all$FreqLateCaptive <- as.numeric(Frequencies_all$FreqLateCaptive)
+Frequencies_all$FreqWild <- as.numeric(Frequencies_all$FreqWild)
+Rxy_frame_total <- data.frame()
+Rxy_frame_normalized_total <- data.frame()
+
+##Rxy
+types <- c("High","Moderate", "Low")
+pop <- c("EarlyCaptive","LateCaptive","Wild")
+
+for (k in pop) {
+Rxy_frame<-data.frame(matrix(ncol = 4, nrow = 0))
+Rxy_jn<-data.frame(matrix(ncol = 3, nrow = 0))
+nam <- paste0("Freq",k)
+
+x<-Frequencies_all[,c(nam)]*(1-Frequencies_all$FreqFounders)
+y<-Frequencies_all$FreqFounders*(1-Frequencies_all[,c(nam)])
+
+xdata_total<-cbind.data.frame(x,y, Type=Frequencies_all$Type, Pop=k)
+
+for (j in types){
+  print(j)
+  xdata <- xdata_total[xdata_total$Type==j,]
+  size <- floor(length(xdata$x)*0.01) # take 1% of the sites for the jacknife
+  
+  rxy<-function(a,xdata,b){
+    sum(xdata[seq(a,a+(size-1),1),b])
+  } 
+  rx_ry<-data.frame()
+  for(i in c(1:100)) {
+    rx_ry[i,1]<-rxy(size*(i-1)+1,xdata,1)
+    rx_ry[i,2]<-rxy(size*(i-1)+1,xdata,2)
+  } 
+  
+  rat<-function(c,rx_ry){sum(rx_ry[c,1])/sum(rx_ry[c,2])}
+  jn_h<-jackknife(1:100,rat,rx_ry) #do jackknife for dataframe rx_ry with the function of rat for 100 times
+  Rxy_jn<-rbind(Rxy_jn, cbind(jn_h$jack.values, rep(j, 100)))
+  Rxy_frame<-rbind(Rxy_frame, cbind(j, sum(xdata$x)/sum(xdata$y), jn_h$jack.se))
+} 
+
+colnames(Rxy_frame)<-c("Type","Rxy", "SE")
+Rxy_frame$Rxy <- as.numeric(Rxy_frame$Rxy)
+Rxy_frame$SE <- as.numeric(Rxy_frame$SE)
+Rxy_frame$Pop <- k
+# Normalize by low 
+Rxy_frame_low <- Rxy_frame[Rxy_frame$Type=="Low",]
+Rxy_frame_notlow <- Rxy_frame[Rxy_frame$Type!="Low",]
+
+Rxy_frame_normalized<- data.frame(Type=c("High","Moderate"),
+                                  Rxy_norm=as.numeric(Rxy_frame_notlow$Rxy)/as.numeric(Rxy_frame_low$Rxy),
+                                  SE_norm=as.numeric(Rxy_frame_notlow$S)/as.numeric(Rxy_frame_low$Rxy),
+                                  Pop=k)
+Rxy_frame_total <-  rbind(Rxy_frame_total,Rxy_frame)
+Rxy_frame_normalized_total <- rbind(Rxy_frame_normalized_total,Rxy_frame_normalized)
+
+}
+
+
+
+cut.off = 1
+Rxy_frame_normalized_total$Rxy_norm_2 <- Rxy_frame_normalized_total$Rxy_norm -1
+
+rxy_plot <- ggplot(Rxy_frame_normalized_total, aes(Pop, Rxy_norm_2, fill=Type))
+rxy_plot <- rxy_plot + geom_col(position = "dodge") + theme_classic()+
+  geom_errorbar(aes(ymin=(Rxy_norm-1)-2*SE_norm, ymax=(Rxy_norm-1)+2*SE_norm), width=.2, position=position_dodge(.75)) +
+  geom_hline(linetype="dashed",yintercept = 0) +scale_fill_manual(values=c("#696047","#7dde92")) +
+  scale_y_continuous(labels = function(x) x + cut.off) +
+  xlab("") + ylab("Rxy (Modern/Historical)") + theme(legend.position = "none")
+rxy_plot
+
+
+Rxy_frame_total$Rxy_2 <- Rxy_frame_total$Rxy -1
+
+rxy_plot2 <- ggplot(Rxy_frame_total, aes(Pop, Rxy_2, fill=Type))
+rxy_plot2 <- rxy_plot2 + geom_col(position = "dodge") + theme_classic()+
+  geom_errorbar(aes(ymin=Rxy_2-2*SE, ymax=Rxy_2+2*SE), width=.2, position=position_dodge(.75)) +
+  geom_hline(linetype="dashed",yintercept = 0) +scale_fill_manual(values=c("#696047","#7dde92","#4f7cac")) +
+  scale_y_continuous(labels = function(x) x + cut.off) +
+  xlab("His") + ylab("Rxy (normalized by Low)") + theme(legend.position = "none")
+rxy_plot2
+
+
+# Rxy with modern samples per category + historical -----
+#read files
+high_freq <- read.csv2("Files/Frequency_derived_high_captivewild_hist.csv", sep=",") # obtained in Load_frequencychange.R
+moderate_freq <- read.csv2("Files/Frequency_derived_moderate_captivewild_hist.csv", sep=",")
+low_freq <- read.csv2("Files/Frequency_derived_low_captivewild_hist.csv", sep=",")
+
+high_freq$Type <- "High"
+moderate_freq$Type <- "Moderate"
+low_freq$Type <- "Low"
+
+Frequencies_all <- rbind.data.frame(high_freq,moderate_freq,low_freq)
+Frequencies_all$FreqHist <- as.numeric(Frequencies_all$FreqHist)
+Frequencies_all$FreqFounders <- as.numeric(Frequencies_all$FreqFounders)
+Frequencies_all$FreqEarlyCaptive <- as.numeric(Frequencies_all$FreqEarlyCaptive)
+Frequencies_all$FreqLateCaptive <- as.numeric(Frequencies_all$FreqLateCaptive)
+Frequencies_all$FreqWild <- as.numeric(Frequencies_all$FreqWild)
+
+Rxy_frame_total <- data.frame()
+Rxy_frame_normalized_total <- data.frame()
+
+##Rxy
+types <- c("High","Moderate", "Low")
+pop <- c("Founders","EarlyCaptive","LateCaptive","Wild")
+
+for (k in pop) {
+  Rxy_frame<-data.frame(matrix(ncol = 4, nrow = 0))
+  Rxy_jn<-data.frame(matrix(ncol = 3, nrow = 0))
+  nam <- paste0("Freq",k)
+  
+  x<-Frequencies_all[,c(nam)]*(1-Frequencies_all$FreqHist)
+  y<-Frequencies_all$FreqHist*(1-Frequencies_all[,c(nam)])
+  
+  xdata_total<-cbind.data.frame(x,y, Type=Frequencies_all$Type, Pop=k)
+  
+  for (j in types){
+    print(j)
+    xdata <- xdata_total[xdata_total$Type==j,]
+    size <- floor(length(xdata$x)*0.01) # take 1% of the sites for the jacknife
+    
+    rxy<-function(a,xdata,b){
+      sum(xdata[seq(a,a+(size-1),1),b])
+    } 
+    rx_ry<-data.frame()
+    for(i in c(1:100)) {
+      rx_ry[i,1]<-rxy(size*(i-1)+1,xdata,1)
+      rx_ry[i,2]<-rxy(size*(i-1)+1,xdata,2)
+    } 
+    
+    rat<-function(c,rx_ry){sum(rx_ry[c,1])/sum(rx_ry[c,2])}
+    jn_h<-jackknife(1:100,rat,rx_ry) #do jackknife for dataframe rx_ry with the function of rat for 100 times
+    Rxy_jn<-rbind(Rxy_jn, cbind(jn_h$jack.values, rep(j, 100)))
+    Rxy_frame<-rbind(Rxy_frame, cbind(j, sum(xdata$x)/sum(xdata$y), jn_h$jack.se))
+  } 
+  
+  colnames(Rxy_frame)<-c("Type","Rxy", "SE")
+  Rxy_frame$Rxy <- as.numeric(Rxy_frame$Rxy)
+  Rxy_frame$SE <- as.numeric(Rxy_frame$SE)
+  Rxy_frame$Pop <- k
+  # Normalize by low 
+  Rxy_frame_low <- Rxy_frame[Rxy_frame$Type=="Low",]
+  Rxy_frame_notlow <- Rxy_frame[Rxy_frame$Type!="Low",]
+  
+  Rxy_frame_normalized<- data.frame(Type=c("High","Moderate"),
+                                    Rxy_norm=as.numeric(Rxy_frame_notlow$Rxy)/as.numeric(Rxy_frame_low$Rxy),
+                                    SE_norm=as.numeric(Rxy_frame_notlow$S)/as.numeric(Rxy_frame_low$Rxy),
+                                    Pop=k)
+  Rxy_frame_total <-  rbind(Rxy_frame_total,Rxy_frame)
+  Rxy_frame_normalized_total <- rbind(Rxy_frame_normalized_total,Rxy_frame_normalized)
+  
+}
+
+
+
+cut.off = 1
+Rxy_frame_normalized_total$Rxy_norm_2 <- Rxy_frame_normalized_total$Rxy_norm -1
+
+rxy_plot <- ggplot(Rxy_frame_normalized_total, aes(Pop, Rxy_norm_2, fill=Type))
+rxy_plot <- rxy_plot + geom_col(position = "dodge") + theme_classic()+
+  geom_errorbar(aes(ymin=(Rxy_norm-1)-2*SE_norm, ymax=(Rxy_norm-1)+2*SE_norm), width=.2, position=position_dodge(.75)) +
+  geom_hline(linetype="dashed",yintercept = 0) +scale_fill_manual(values=c("#696047","#7dde92")) +
+  scale_y_continuous(labels = function(x) x + cut.off) +
+  xlab("") + ylab("Rxy (Modern/Historical)") + theme(legend.position = "none")
+rxy_plot
+
+ggsave("Manuscript/Plots_supplementary/Rxy_percategory.pdf", height = 4, width = 5)
+
+ggplot(Rxy_frame_normalized_total, aes(x=Pop , y=Rxy_norm, col=Type)) +
+  #  geom_bar(position = "dodge", stat = "identity", width=0.7) +
+  geom_point( position=position_dodge(.75)) +
+  geom_errorbar(aes(ymin=Rxy_norm-2*SE_norm, ymax=Rxy_norm+2*SE_norm), width=.2, position=position_dodge(.75)) +
+  coord_flip() +
+  theme_classic() +
+  theme(panel.grid.major=element_line(colour=NA), legend.position="bottom")
+
+
+
+
+Rxy_frame_total$Rxy_2 <- Rxy_frame_total$Rxy -1
+
+rxy_plot2 <- ggplot(Rxy_frame_total, aes(Pop, Rxy_2, fill=Type))
+rxy_plot2 <- rxy_plot2 + geom_col(position = "dodge") + theme_classic()+
+  geom_errorbar(aes(ymin=Rxy_2-2*SE, ymax=Rxy_2+2*SE), width=.2, position=position_dodge(.75)) +
+  geom_hline(linetype="dashed",yintercept = 0) +scale_fill_manual(values=c("#696047","#7dde92","#4f7cac")) +
+  scale_y_continuous(labels = function(x) x + cut.off) +
+  xlab("His") + ylab("Rxy (normalized by Low)") + theme(legend.position = "none")
+rxy_plot2
