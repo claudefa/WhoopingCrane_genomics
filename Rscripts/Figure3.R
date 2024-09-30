@@ -163,7 +163,7 @@ g1 <- g1 +
   geom_step(data = df[df$b=="1",],aes(x = (xx)/1000, y = yy), color="#cf9b00") +
   xlab(paste0("Thousands of Years ago (kya)")) + ylab("Ne")+
   scale_x_log10(limits=c(5,1000),n.breaks = 10,
-                labels = scales::comma,expand = c(0, 0)) +
+                labels = scales::comma,expand =expansion(mult = c(0, 0.05)) ) +
   scale_y_continuous(limits=c(0,35000),n.breaks = 10,labels = scales::comma)+
   theme_classic()
 g1
@@ -179,7 +179,7 @@ g <- g +  geom_step(aes(x = year, y = Ne_median), color="#cf9b00") +
   geom_step(aes(x = year, y = Ne_97.5.), color="#e8dfc5") +
   xlab(paste0("Years ago")) + ylab("Ne")+
   scale_x_log10(limits=c(100,5000), n.breaks = 10,
-                labels = scales::comma,expand = c(0, 0) ) +
+                labels = scales::comma,expand=expansion(mult = c(0, 0.05)) ) +
   scale_y_log10(limits=c(30,50000),n.breaks = 10,labels = scales::comma) +
   
   theme_classic()
@@ -228,10 +228,9 @@ g2 <- g2 +
   geom_rect(aes(xmin = 140, ymin =-5, xmax = 10, ymax = 500), color="red", fill="white",alpha=0.2)+
   geom_line(data=gonebs,aes(x = Years, y = Geometric_mean, group=Sample), color="#e8dfc5") +
   geom_line(data=gone,aes(x = Years, y = Geometric_mean), color="#cf9b00") +
-  scale_x_continuous() +
   xlab(paste0("Years ago")) + ylab("Ne")+
   scale_x_continuous(limits=c(0,500),
-                     n.breaks = 10,labels = scales::comma,expand=c(0,0))+
+                     n.breaks = 10,labels = scales::comma,expand=expansion(mult = c(0, 0.05)))+
   theme_classic()
 g2
 

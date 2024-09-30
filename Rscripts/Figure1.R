@@ -204,6 +204,28 @@ ggarrange(ggarrange(s, g, ncol=1, nrow=2,heights = c(1,1), labels = c("A","B")) 
 ggarrange(ggarrange(s, g, ncol=2, nrow=1,heights = c(1,1), labels = c("A","B")) , ggarrange(p,p2, ncol=2, nrow=1,align = "h", labels = c("C","D")), ncol=1)
 ggsave("Manuscript/MainFigures/Figure1.pdf", height = 10, width = 10)
 
+# Final figure with map and diagram -----
+library(png)
+s2 <-  readPNG("Manuscript/MainFigures/Figure1B.png")
+s2 <-  readPNG("Manuscript/MainFigures/Figure1b_2.png")
+s2_g <- ggplot() + background_image(s2) +
+  theme(plot.margin = margin(t=3, l=0, r=0, b=2, unit = "cm"))
+
+ggarrange(ggarrange(s, ggarrange(s2_g, g, ncol=1), ncol=2, 
+                    nrow=1,heights = c(1,1), labels = c("A","B")) , 
+          ggarrange(p,p2, ncol=2, nrow=1,align = "h", labels = c("C","D")), 
+          ncol=1,heights = c(3,1))
+
+ggarrange(ggarrange(s,p,p2 , ncol=1,nrow=3,heights = c(1,1,1)),
+          ggarrange(s2_g,g, ncol=1, nrow=2),
+          ncol=2)
+
+ggarrange(ggarrange(s,s2_g , ncol=2,nrow=1, labels=c("A","B")),
+          ggarrange(g, ggarrange(p,p2,ncol=1, nrow=2, labels=c("D","E")), 
+          ncol=2, labels=c("C","")), nrow=2)
+  
+ggsave("Manuscript/MainFigures/Figure1_option2.pdf", height = 10, width = 10)
+
 
 
 # Supplementary figures -----

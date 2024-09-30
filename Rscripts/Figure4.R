@@ -38,8 +38,8 @@ my_comparisons <- list( c("Founders_wildborn", "Early_captive"),
 het <- ggplot(metadata_nonhist[metadata_nonhist$Coverage>=10,], aes(Category, `Heterozygosity (all Pos only Modern 10x)`,color=Category))
 het <- het+ geom_boxplot(outlier.shape = NA) + geom_jitter()+ 
   theme_classic() + ylab("Heterozygosity (bp-1)")+ xlab("")+
-  stat_compare_means(comparisons = my_comparisons)+
-  stat_compare_means(label.y =0.00105, label.x=2.2)+
+#  stat_compare_means(comparisons = my_comparisons)+
+  stat_compare_means(label.x=2.2)+
   theme(legend.position = "none", axis.text.x=element_text(angle=45, hjust=1)) +
   scale_color_manual(values=colors_category_2) 
 het
@@ -96,8 +96,8 @@ froh <- ggplot(roh_perc_df_gather4[roh_perc_df_gather4$Category!="Historical"
                                   &roh_perc_df_gather4$Coverage>10,], aes(Category, value*100, color=Category))
 froh <- froh+ geom_boxplot(outlier.shape = NA) +  geom_jitter()+ 
   theme_classic() + ylab("FROH (%)")+ xlab("")+
-  stat_compare_means(comparisons = my_comparisons)+
-  stat_compare_means(label.y =26, label.x=2.3)+
+ # stat_compare_means(comparisons = my_comparisons)+
+  stat_compare_means(label.x=2.3)+
   theme(legend.position = "none", axis.text.x=element_text(angle=45, hjust=1)) + scale_color_manual(values=colors_category_2) 
 froh
 
@@ -119,8 +119,8 @@ froh2 <- ggplot(roh_perc_df_gather4[roh_perc_df_gather4$Category!="Historical"
                                    &roh_perc_df_gather4$Coverage>10,], aes(Category2, value*100, color=Category2))
 froh2 <- froh2+ geom_boxplot(outlier.shape = NA) +  geom_jitter()+ 
   theme_classic() + ylab("FROH (%)")+ xlab("")+
-  stat_compare_means(comparisons = my_comparisons2)+
-  stat_compare_means(label.y =22, label.x=2)+
+  #stat_compare_means(comparisons = my_comparisons2)+
+  stat_compare_means(label.x=2)+
   theme(legend.position = "none") + scale_color_manual(values=colors_category_2[c(1,3,4)]) 
 froh2
 
@@ -217,8 +217,8 @@ p <- p+ geom_boxplot(outlier.shape = NA) +  geom_jitter()+
   facet_grid(.~key) +
   theme_classic() + ylab("FROH (%)")+ xlab("")+
   theme(legend.position = "right") + scale_color_manual(values=colors_category_2) + 
-  ggtitle("FROH 1Mb window size")+
-  stat_compare_means(comparisons = my_comparisons)+
+  ggtitle("FROH 1Mb window size")+ ylim(c(0,23))+
+  #stat_compare_means(comparisons = my_comparisons)+
   stat_compare_means(label.y =22, label.x=2)
 p
 
@@ -239,7 +239,7 @@ froh3 <- froh3+ geom_boxplot(outlier.shape = NA) +  geom_jitter()+
   facet_grid(.~key) +
   theme_classic() + ylab("FROH (%)")+ xlab("")+
   theme(legend.position = "none", axis.text.x=element_text(angle=45, hjust=1)) + scale_color_manual(values=colors_category_2[c(1,3,4)]) + 
-  stat_compare_means(comparisons = my_comparisons2)+
+ # stat_compare_means(comparisons = my_comparisons2)+
   stat_compare_means(label.y =10, label.x=1)
 froh3
 
@@ -252,7 +252,7 @@ mean(roh_perc_2[roh_perc_2$Category=="Late_captive"&roh_perc_2$key==">10Mb",]$va
 
 
 
-# Figure 4D generations ago -----
+# Figure 4D generations ago, actually supplementary Fig S13 -----
 
 species <-c('Red_neckedCrane','quail','CollFly_female','CollFly_male','zebraFinch','HeHo_male',
             'HeHo_female','HouseSp')
@@ -318,7 +318,6 @@ pa
 
 pa <- ggplot(roh_perc_df_gather2[roh_perc_df_gather2$Coverage>10&
                                    roh_perc_df_gather2$key!=">32 gen",], 
-             
              aes(Category,value*100,color=Category))
 pa <- pa + geom_boxplot()+ geom_jitter()+ theme_classic() +  xlab("")+ facet_wrap(.~key,  scales="free", nrow=1)+
   ylab("% of Genome in RoH") + 
@@ -326,8 +325,7 @@ pa <- pa + geom_boxplot()+ geom_jitter()+ theme_classic() +  xlab("")+ facet_wra
   theme(legend.position = "none", axis.text.y = element_text(hjust=0.5),
         axis.text.x = element_text(angle=45, hjust=1)) + 
   scale_color_manual(values=colors_category_2)+
-  stat_compare_means(label.x = 1.5)+
-  stat_compare_means(comparisons = my_comparisons)
+  stat_compare_means(label.x = 1.5) #+  stat_compare_means(comparisons = my_comparisons)
 
 pa
 
@@ -418,8 +416,6 @@ pa
 ggsave("Manuscript/Plots_supplementary/FigureS7_barplot_timing_blacknecked.pdf",  width = 13, height = 4)
 
 
-
-
 pa_rn <- ggplot(roh_perc_df_gather2[which(roh_perc_df_gather2$key%in%c("8-16 gen","4-8 gen","2-4 gen","0-2 gen")&
                                          roh_perc_df_gather2$Coverage>10),], 
              aes(Category,value*100,color=Category))
@@ -429,8 +425,7 @@ pa_rn <- pa_rn + geom_boxplot()+ geom_jitter(height=0)+ theme_classic() +  xlab(
   theme(legend.position = "none", axis.text.y = element_text(hjust=0.5),
         axis.text.x = element_text(angle=45, hjust=1)) + 
   scale_color_manual(values=colors_category_2)+
-  stat_compare_means(label.x = 1.5)+
-  stat_compare_means(comparisons = my_comparisons,method = "wilcox.test")#method = "t.test")
+  stat_compare_means(label.x = 1.2)#+stat_compare_means(comparisons = my_comparisons,method = "wilcox.test")#method = "t.test")
 
 pa_rn
 
@@ -530,7 +525,7 @@ p5=ggplot(X[L>=10 ],aes(L,Tgen,col=paste(species,r))) + geom_line() + geom_point
 
 
 
-# Figure 4E -Adding load in rohs ----
+# Figure S13 -Adding load in rohs ----
 high_list_df <- read.csv2("Files/Genotype_load_modern_10x.csv")
 roh_sample <- read_excel("Files/Roh_persample_metadata.xlsx", sheet = 1)
 total_hom <-read.table("Files/snpEff/Total_countsHOM.txt") # it is from downsampled at 10x
@@ -638,6 +633,7 @@ g_loadroh <- g_loadroh + geom_boxplot(outlier.shape = NA) +
   stat_compare_means() + theme(axis.text.x = element_text(hjust=1, angle=45), legend.position = "none")
 g_loadroh
 
+ggsave("Manuscript/Plots_supplementary/FigureS13_load_latewild.pdf", height = 8, width = 10)
 
 # supplementary 
 g <- ggplot(counts_inside_outside_metadata_gather[which(counts_inside_outside_metadata_gather$Category%in%c("Late_captive","Wild")),],
@@ -649,13 +645,13 @@ g <- g + geom_boxplot(outlier.shape = NA) +
   stat_compare_means() + theme(axis.text.x = element_text(hjust=1, angle=45), legend.position = "none")
 g
 
-ggsave("Manuscript/Plots_supplementary/FigureS12_load_latewild.pdf", height = 8, width = 10)
+ggsave("Manuscript/Plots_supplementary/FigureS14_load_latewild.pdf", height = 8, width = 10)
 
 
 # Final figure 4 -----
 ggarrange(ggarrange(het, froh,froh3, nrow=1, labels=c("A","B","C")),
-          pa_rn, g_loadroh,nrow=3, labels=c("","D","E"), heights = c(1,1,2))
-ggsave("Manuscript/MainFigures/Figure4.pdf", height = 15, width = 13)
+          pa_rn, nrow=2, labels=c("","D"), heights = c(1,1,2))
+ggsave("Manuscript/MainFigures/Figure4.pdf", height = 8, width = 13)
 
 
 # Relatedness wild supplementary -----
