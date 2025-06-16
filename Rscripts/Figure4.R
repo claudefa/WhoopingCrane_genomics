@@ -413,6 +413,7 @@ pa <- pa + geom_col()+ theme_classic() +  xlab("")+ facet_grid(.~Category,  scal
         axis.text.x = element_text(angle=45, hjust=1)) + 
   scale_fill_manual(values=rev(c("#8D5B4C","#CDACA2","#587D71","#ABC4BC","#F6AE2D","#FBDA9D")), name="RoH Size") 
 pa
+
 ggsave("Manuscript/Plots_supplementary/FigureS7_barplot_timing_blacknecked.pdf",  width = 13, height = 4)
 
 
@@ -526,8 +527,10 @@ p5=ggplot(X[L>=10 ],aes(L,Tgen,col=paste(species,r))) + geom_line() + geom_point
 
 
 # Figure S13 -Adding load in rohs ----
-high_list_df <- read.csv2("Files/Genotype_load_modern_10x.csv")
+high_list_df <- read.csv2("Files/Genotype_load_modern_10x.csv") # old without filtering
+
 roh_sample <- read_excel("Files/Roh_persample_metadata.xlsx", sheet = 1)
+
 total_hom <-read.table("Files/snpEff/Total_countsHOM.txt") # it is from downsampled at 10x
 colnames(total_hom) <- c("SampleID","TotalHOMALT","TotalHOMDERIVED","HOMDERV_ROH")
 total_hom$HOMDERV_outROH <- total_hom$TotalHOMDERIVED - total_hom$HOMDERV_ROH
@@ -647,6 +650,131 @@ g
 
 ggsave("Manuscript/Plots_supplementary/FigureS14_load_latewild.pdf", height = 8, width = 10)
 
+#####
+# Figure S13 -Adding load in rohs new after R1 ----
+high_list_df <- read.csv2("Files/modern_load_genotypes_R1.csv")
+roh_sample <- read_excel("Files/Roh_persample_metadata.xlsx", sheet = 1)
+
+frohsample <- read_excel("Manuscript/Review/Fontsere_etal_whooping_crane_Supp_tables_R1.xlsx", sheet = 2)
+
+# instead of normalizing by HOM count let's normalize by size of ROHs-nonROHs
+samples_modern <- unique(roh_sample$SampleID)
+samples_modern <- samples_modern[-22]
+
+counts_inside_outside <- do.call(rbind,lapply(1:length(samples_modern), function(i){
+  load_high <- high_list_df[high_list_df$SampleID==samples_modern[i]&high_list_df$Class=="High",]
+  load_moderate <- high_list_df[high_list_df$SampleID==samples_modern[i]&high_list_df$Class=="Moderate",]
+  load_low <- high_list_df[high_list_df$SampleID==samples_modern[i]&high_list_df$Class=="Low",]
+  
+  load_HOM_high <- cbind.data.frame(load_high[load_high$Genotype=="1/1",]$Chrom,
+                                    load_high[load_high$Genotype=="1/1",]$Pos-1, load_high[load_high$Genotype=="1/1",]$Pos,
+                                    "High")
+  load_HOM_moderate <- cbind.data.frame(load_moderate[load_moderate$Genotype=="1/1",]$Chrom,
+                                        load_moderate[load_moderate$Genotype=="1/1",]$Pos-1, load_moderate[load_moderate$Genotype=="1/1",]$Pos,
+                                        "Moderate")
+  load_HOM_low <- cbind.data.frame(load_low[load_low$Genotype=="1/1",]$Chrom,
+                                   load_low[load_low$Genotype=="1/1",]$Pos-1, load_low[load_low$Genotype=="1/1",]$Pos,
+                                   "Low")
+  colnames(load_HOM_high) <- c("Scaffold","BEGIN","END","Class")
+  colnames(load_HOM_moderate) <- c("Scaffold","BEGIN","END","Class")
+  colnames(load_HOM_low) <- c("Scaffold","BEGIN","END","Class")
+  
+  roh <- roh_sample[roh_sample$SampleID==samples_modern[i],c(2:4)]
+  
+  load_inRoh_HOM_high <- bedtoolsr::bt.intersect(a = load_HOM_high, b=roh,wa=TRUE) 
+  load_inRoh_HOM_moderate <- bedtoolsr::bt.intersect(a = load_HOM_moderate, b=roh,wa=TRUE)
+  load_inRoh_HOM_low <- bedtoolsr::bt.intersect(a = load_HOM_low, b=roh,wa=TRUE)
+  
+  #add load outside ROH
+  load_outsideRoh_HOM_high <-  bedtoolsr::bt.subtract(a=load_HOM_high, b=load_inRoh_HOM_high)
+  load_outsideRoh_HOM_moderate <-  bedtoolsr::bt.subtract(a=load_HOM_moderate, b=load_inRoh_HOM_moderate)
+  load_outsideRoh_HOM_low <-  bedtoolsr::bt.subtract(a=load_HOM_low, b=load_inRoh_HOM_low)
+  
+  # Froh proportion for normalization
+  froh_sample <- frohsample[frohsample$SampleID==samples_modern[i],]$FROH
+  nonfroh_sample <- 1-froh_sample
+  
+  froh_sample <- froh_sample*1112400596
+  nonfroh_sample <- nonfroh_sample*1112400596
+  
+  
+  data.frame(SampleID=samples_modern[i], 
+             HOM_roh_High=length(load_inRoh_HOM_high$V1)*2,
+             HOM_outsideroh_High=length(load_outsideRoh_HOM_high$V1)*2,
+             HOM_total_High=length(load_HOM_high$Scaffold)*2,
+             
+             Prop_HOM_roh_High=(length(load_inRoh_HOM_high$V1)*2)/froh_sample,  
+             Prop_HOM_outsideroh_High=(length(load_outsideRoh_HOM_high$V1)*2)/nonfroh_sample, # normalization by Froh
+             
+             Prop_HOM_roh_High_LOW=((length(load_inRoh_HOM_high$V1)*2)/length(load_inRoh_HOM_low$V1)*2)/froh_sample,
+             Prop_HOM_outsideroh_High_LOW=((length(load_outsideRoh_HOM_high$V1)*2)/length(load_outsideRoh_HOM_low$V1)*2)/nonfroh_sample, 
+             
+             HOM_roh_Moderate=length(load_inRoh_HOM_moderate$V1)*2,
+             HOM_outsideroh_Moderate=length(load_outsideRoh_HOM_moderate$V1)*2,
+             HOM_total_Moderate=length(load_HOM_moderate$Scaffold)*2,
+             
+             Prop_HOM_roh_Moderate=(length(load_inRoh_HOM_moderate$V1)*2)/froh_sample,
+             Prop_HOM_outsideroh_Moderate=(length(load_outsideRoh_HOM_moderate$V1)*2)/nonfroh_sample, 
+             Prop_HOM_roh_Moderate_LOW=((length(load_inRoh_HOM_moderate$V1)*2)/length(load_inRoh_HOM_low$V1)*2)/froh_sample,
+             Prop_HOM_outsideroh_Moderate_LOW=((length(load_outsideRoh_HOM_moderate$V1)*2)/length(load_outsideRoh_HOM_low$V1)*2)/nonfroh_sample, 
+             
+             HOM_roh_Low=length(load_inRoh_HOM_low$V1)*2,
+             HOM_outsideroh_Low=length(load_outsideRoh_HOM_low$V1)*2,
+             HOM_total_Low=length(load_HOM_low$Scaffold)*2,
+             Prop_HOM_roh_Low=(length(load_inRoh_HOM_low$V1)*2)/froh_sample,
+             Prop_HOM_outsideroh_Low=(length(load_outsideRoh_HOM_low$V1)*2)/nonfroh_sample 
+  )
+}))
+
+
+#  Proportion of load inside and outside roh - corrected by Froh
+counts_inside_outside_metadata <- merge(counts_inside_outside, metadata[,c("SampleID","Category","Type","Coverage","FROH 1Mb (All only Coverage >4)")], by="SampleID")
+order_category <- c("Founders_wildborn","Early_captive","Late_captive","Wild")
+counts_inside_outside_metadata$Category <- factor(counts_inside_outside_metadata$Category, levels=order_category,ordered=TRUE) 
+
+
+
+counts_inside_outside_metadata_gather <- gather(counts_inside_outside_metadata, key, value, -Category, -Coverage, -SampleID, -Type,
+                                                -HOM_roh_High, -HOM_outsideroh_High, -HOM_total_High, -HOM_roh_Moderate,  -Prop_HOM_roh_High_LOW,
+                                                -Prop_HOM_outsideroh_High_LOW,-Prop_HOM_roh_Moderate_LOW,-Prop_HOM_outsideroh_Moderate_LOW,
+                                                -HOM_outsideroh_Moderate, -HOM_total_Moderate,
+                                                -HOM_roh_Low,-HOM_total_Low,-HOM_outsideroh_Low,-`FROH 1Mb (All only Coverage >4)`)
+
+counts_inside_outside_metadata_gather$LoadType <- unlist(lapply(1:length(counts_inside_outside_metadata_gather$key), function(i) 
+  strsplit(counts_inside_outside_metadata_gather$key, "_")[[i]][4]))
+
+counts_inside_outside_metadata_gather$Group <- unlist(lapply(1:length(counts_inside_outside_metadata_gather$key), function(i) 
+  strsplit(counts_inside_outside_metadata_gather$key, "_")[[i]][3]))
+
+order_type <- c("Low","Moderate","High")
+counts_inside_outside_metadata_gather$LoadType <- factor(counts_inside_outside_metadata_gather$LoadType, levels=order_type,ordered=TRUE) 
+
+counts_inside_outside_metadata_gather$Group <- gsub("outsideroh","Outside ROH",counts_inside_outside_metadata_gather$Group)
+counts_inside_outside_metadata_gather$Group <- gsub("roh","Inside ROH",counts_inside_outside_metadata_gather$Group)
+
+g_loadroh <- ggplot(counts_inside_outside_metadata_gather, aes(Group,value, fill=Group))
+g_loadroh <- g_loadroh + geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(size=1, aes(group=Group))+ theme_classic() +
+  xlab("") + facet_grid(LoadType~Category, scales="free_y")+ ylab("Count Normalized By Bases in ROH or Non-ROH")+
+  scale_fill_manual(values=c("#f5c542","#76b7f5"))+
+  stat_compare_means() + theme(axis.text.x = element_text(hjust=1, angle=45), legend.position = "none")
+g_loadroh
+
+ggsave("Manuscript/Plots_supplementary/FigureS13_load_latewild_R1_2.pdf", height = 8, width = 10)
+
+# supplementary 
+g <- ggplot(counts_inside_outside_metadata_gather[which(counts_inside_outside_metadata_gather$Category%in%c("Late_captive","Wild")),],
+            aes(Category,value, fill=Category))
+g <- g + geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(size=1, aes(group=Group))+ theme_classic() +
+  xlab("") + facet_grid(LoadType~Group, scales="free_y")+ ylab("Count Normalized By Bases in ROH or Non-ROH")+
+  scale_fill_manual(values=c("#f5c542","#76b7f5"))+
+  stat_compare_means() + theme(axis.text.x = element_text(hjust=1, angle=45), legend.position = "none")
+g
+
+ggsave("Manuscript/Plots_supplementary/FigureS14_load_latewild_R1.pdf", height = 8, width = 10)
+
+####
 
 # Final figure 4 -----
 ggarrange(ggarrange(het, froh,froh3, nrow=1, labels=c("A","B","C")),

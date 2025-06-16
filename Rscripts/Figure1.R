@@ -8,8 +8,14 @@ library("rgdal")
 library('maps')
 library('mapdata')
 library('maptools')
+library('png')
 
 setwd("~/Documents/OneDrive - University of Copenhagen/Whooping_Crane/")
+colors_category <- c("#6d466bff","#e3e359","#EB9486" )
+colors_category_2 <- c("#8C2717","#E67260","#F1B1A7","#e3e359" )
+
+metadata <- read_excel("Manuscript/Review/Fontsere_etal_whooping_crane_Supp_tables_R1.xlsx", sheet = 2)
+metadata$Type <- factor(metadata$Type, levels = c("Historical","Wild","Captive"), ordered = T)
 
 ## Figure 1 A Map -------
 map <-readOGR("~/Documents/OneDrive - University of Copenhagen/CottonTop_Tamarins/Files/ne_50m_admin_0_countries/ne_50m_admin_0_countries.shp")
@@ -106,11 +112,11 @@ het_df_metadata$IUCN <- factor(het_df_metadata$IUCN, levels = c( "Least Concern"
                                                                  "Vulnerable" ,"Endangered" ,                  
                                                                  "Critically Endangered"), ordered = T )
 
-#Add values for sample with highest coverage historical (MCZ-42511 , 8.37x coverage =0.0009227655*2.89) and average modern samples at 10x (0.000782119)
+#Add values for sample with highest coverage historical (MCZ-220028 , 7x coverage =0.00102421148792956*2.89) and average modern samples at 10x (0.000782119)
 #ts/tv ratio 2.89
 
 wc_dataset <- data.frame(Sample=c("Grus_americana_historical_8x","Grus_americana_modern_10x"),
-                         Het=c(0.0009227655*2.89,0.000782119),
+                         Het=c(0.00102421148792956*2.89,0.000782119),
                          Order=c("Gruiformes","Gruiformes"),
                          IUCN=c("Endangered","Endangered"))
 het_df_metadata2 <- rbind.data.frame(het_df_metadata,wc_dataset)
@@ -119,7 +125,7 @@ het_df_metadata2 <- het_df_metadata2[with(het_df_metadata2,order(het_df_metadata
 samples_order <- het_df_metadata2$Sample
 het_df_metadata2$Sample <- factor(het_df_metadata2$Sample, levels=samples_order, ordered=TRUE)
 
-het_df_metadata2$Type <- c(rep("Others", times=6),"Sp","Sp",rep("Others", times=13), "Sp",rep("Others", times=14))
+het_df_metadata2$Type <- c(rep("Others", times=6),"Sp","Sp",rep("Others", times=15), "Sp",rep("Others", times=12))
 
 g <- ggplot(het_df_metadata2, aes(Sample, Het, fill=IUCN, shape=Type))
 g <- g+ theme_classic()+ 
@@ -137,7 +143,7 @@ g <- g+ theme_classic()+
                                            "black","#ff333a","#ff333a","black","black",
                                            "black","black","black","black","black",
                                            "black","black","black","black","black",
-                                           "black","#ff333a","black","black","black",
+                                           "black","black","black","#ff333a","black",
                                            "black","black","black","black","black",
                                            "black","black"))) +
   xlab("") + ylab("Heterozygosity (bp-1)")+
@@ -149,14 +155,22 @@ g
 colors_category <- c("#6d466bff","#e3e359","#EB9486" )
 colors_category_2 <- c("#8C2717","#E67260","#F1B1A7","#e3e359" )
 
-metadata <- read_excel("Metadata_crane.xlsx", sheet = 1)
+metadata <- read_excel("Manuscript/Review/Fontsere_etal_whooping_crane_Supp_tables_R1.xlsx", sheet = 2)
 metadata$Type <- factor(metadata$Type, levels = c("Historical","Wild","Captive"), ordered = T)
+
+
+my_comparisons <- list( c("Historical", "Wild"), 
+                        c("Historical", "Captive"), 
+                        c("Wild", "Captive")) 
+
+
 
 p <- ggplot(metadata, aes(Type, `Heterozygosity (tv)`, color=Type))
 p <- p+ geom_boxplot(outlier.shape = NA) + geom_jitter()+ 
   theme_classic() + ylab("Heterozygosity (bp-1)")+ xlab("")+
   scale_color_manual(values = colors_category)+ ylim(0,0.0017)+
-  stat_compare_means(label.x = 1.8, label.y = 0.0015)+
+  #stat_compare_means(label.x = 1.8, label.y = 0.0015)+
+  stat_compare_means(comparisons = my_comparisons, method="wilcox.test")+
   theme(legend.position = "none", legend.title = element_blank()) #+ ggtitle("Heterozygosity, only Transversions")
 p
 
@@ -193,38 +207,24 @@ p2 <- ggplot(roh_perc_df_gather4[roh_perc_df_gather4$Coverage>=4,], aes(Type, va
 p2 <- p2+ geom_boxplot(outlier.shape = NA) +  geom_jitter()+   guides(color=guide_legend(keywidth = 2, keyheight = 1,
                                                                                          override.aes = list(size = 1, shape = NA)))+
   theme_classic() + ylab("FROH (%)")+ xlab("")+
-  theme(legend.position = "none", legend.title = element_blank()) + scale_color_manual(values=colors_category) + 
-  stat_compare_means(label.x = 1.8, label.y = 24)
+  theme(legend.position = "none", legend.title = element_blank()) + 
+  scale_color_manual(values=colors_category) +
+  stat_compare_means(comparisons = my_comparisons, method="wilcox.test")
+ # stat_compare_means(label.x = 1.8, label.y = 24)
 p2
-
-
-# Final figure -----
-
-ggarrange(ggarrange(s, g, ncol=1, nrow=2,heights = c(1,1), labels = c("A","B")) , ggarrange(p,p2, ncol=1, nrow=2,align = "v", labels = c("C","D")), ncol=2)
-ggarrange(ggarrange(s, g, ncol=2, nrow=1,heights = c(1,1), labels = c("A","B")) , ggarrange(p,p2, ncol=2, nrow=1,align = "h", labels = c("C","D")), ncol=1)
-ggsave("Manuscript/MainFigures/Figure1.pdf", height = 10, width = 10)
 
 # Final figure with map and diagram -----
 library(png)
-s2 <-  readPNG("Manuscript/MainFigures/Figure1B.png")
 s2 <-  readPNG("Manuscript/MainFigures/Figure1b_2.png")
+s2 <-  readPNG("Manuscript/MainFigures/Figure1b_R1.png")
 s2_g <- ggplot() + background_image(s2) +
   theme(plot.margin = margin(t=3, l=0, r=0, b=2, unit = "cm"))
-
-ggarrange(ggarrange(s, ggarrange(s2_g, g, ncol=1), ncol=2, 
-                    nrow=1,heights = c(1,1), labels = c("A","B")) , 
-          ggarrange(p,p2, ncol=2, nrow=1,align = "h", labels = c("C","D")), 
-          ncol=1,heights = c(3,1))
-
-ggarrange(ggarrange(s,p,p2 , ncol=1,nrow=3,heights = c(1,1,1)),
-          ggarrange(s2_g,g, ncol=1, nrow=2),
-          ncol=2)
 
 ggarrange(ggarrange(s,s2_g , ncol=2,nrow=1, labels=c("A","B")),
           ggarrange(g, ggarrange(p,p2,ncol=1, nrow=2, labels=c("D","E")), 
           ncol=2, labels=c("C","")), nrow=2)
   
-ggsave("Manuscript/MainFigures/Figure1_option2.pdf", height = 10, width = 10)
+ggsave("Manuscript/MainFigures/Figure1_option2_R1.pdf", height = 10, width = 10)
 
 
 
@@ -255,7 +255,7 @@ p1 <- p1+ geom_point(data=metadata[metadata$Category=="Historical",],
 p1
 
 ggarrange(p,p1, ncol=2, labels=c("A","B"))
-ggsave("Manuscript/Plots_supplementary/FigureS1_covhet.pdf", height = 4,width = 11)
+ggsave("Manuscript/Plots_supplementary/FigureS1_covhet_R1.pdf", height = 4,width = 11)
 
 
 # Heterozygosity downsampled to 4 x------
@@ -264,10 +264,10 @@ p <- ggplot(metadata, aes(Type, `Heterozygosity (tv - 4x)`, color=Type))
 p <- p+ geom_boxplot(outlier.shape = NA) + geom_jitter()+ 
   theme_classic() + ylab("Heterozygosity (bp-1)")+ xlab("")+
   scale_color_manual(values = colors_category)+ ylim(0,0.001)+
-  stat_compare_means(label.x = 1.8, label.y = 0.0007)+
+  stat_compare_means(label.x = 1.8, label.y = 0.001)+
   theme(legend.position = c(0.85,0.8), legend.title = element_blank()) #+ ggtitle("Heterozygosity, only Transversions")
 p
-ggsave("Manuscript/Plots_supplementary/FigureS2_hetdown4x.pdf", height = 4,width = 6)
+ggsave("Manuscript/Plots_supplementary/FigureS2_hetdown4x_R1.pdf", height = 4,width = 6)
 
 # Correlation between heterozygosity and coverage after downsampling not included as supplementary figure
 summary(lm(metadata[metadata$Category!="Historical",]$`Heterozygosity (tv - 4x)`~metadata[metadata$Category!="Historical",]$CoverageDown4x))
@@ -292,6 +292,81 @@ p2 <- p2+ geom_point(data=metadata[metadata$Category=="Historical",],aes(`Hetero
   ggtitle("Heterozygosity vs Coverage - Down 4x Coverage Modern Samples")
 p2
 
+# After reviewers comment add more context on the downsampling to 4x so there is no correlation between groups
+metadata <- read_excel("Manuscript/Review/Het_coverage_year.xlsx")
+
+metadata$Year <- as.numeric(metadata$Year)
+
+summary(lm(metadata[metadata$Type=="Historical",]$`Heterozygosity (tv - 4x)`~
+             metadata[metadata$Type=="Historical",]$Year))
+
+p1 <- ggplot()
+p1 <- p1+ geom_point(data=metadata[metadata$Type=="Historical",],aes(Year, `Heterozygosity (tv - 4x)`, color=Type)) +
+  theme_classic() + ylab("Heterozygosity (bp-1) - Down 4x")+ xlab("Year")+
+  geom_smooth(data=metadata[metadata$Type=="Historical",],
+              aes(Year, `Heterozygosity (tv - 4x)`, color=Type), method = "lm")+
+  theme(legend.position = "none") + scale_color_manual(values=colors_category) + 
+  ggtitle("Heterozygosity Downsampled to 4x vs Year")
+p1
+summary(lm(metadata[metadata$Type=="Historical",]$`Heterozygosity (tv)`~
+             metadata[metadata$Type=="Historical",]$Year))
+p2 <- ggplot()
+p2 <- p2+ geom_point(data=metadata[metadata$Type=="Historical",],aes(Year, `Heterozygosity (tv)`, color=Type)) +
+  theme_classic() + ylab("Heterozygosity (bp-1)")+ xlab("Year")+
+  geom_smooth(data=metadata[metadata$Type=="Historical",],
+              aes(Year, `Heterozygosity (tv)`, color=Type), method = "lm")+
+  theme(legend.position = "none") + scale_color_manual(values=colors_category) + 
+  ggtitle("Heterozygosity vs Year")
+p2
+
+summary(lm(metadata[metadata$Type=="Captive",]$`Heterozygosity (tv - 4x)`~
+             metadata[metadata$Type=="Captive",]$Year))
+summary(lm(metadata[metadata$Type=="Wild",]$`Heterozygosity (tv - 4x)`~
+             metadata[metadata$Type=="Wild",]$Year))
+p3 <- ggplot()
+p3 <- p3+ geom_point(data=metadata[metadata$Type!="Historical",],aes(Year, `Heterozygosity (tv - 4x)`, color=Type)) +
+  theme_classic() + ylab("Heterozygosity (bp-1) - Down 4x")+ xlab("Year")+
+  geom_smooth(data=metadata[metadata$Type!="Historical",],
+              aes(Year, `Heterozygosity (tv - 4x)`, color=Type), method = "lm")+
+  theme(legend.position = "top") + scale_color_manual(values=colors_category[2:3]) + 
+  ggtitle("Heterozygosity Downsampled to 4x vs Year")
+p3
+summary(lm(metadata[metadata$Type=="Captive",]$`Heterozygosity (tv)`~
+             metadata[metadata$Type=="Captive",]$Year))
+summary(lm(metadata[metadata$Type=="Wild",]$`Heterozygosity (tv)`~
+             metadata[metadata$Type=="Wild",]$Year))
+p4 <- ggplot()
+p4 <- p4+ geom_point(data=metadata[metadata$Type!="Historical",],aes(Year, `Heterozygosity (tv)`, color=Type)) +
+  theme_classic() + ylab("Heterozygosity (bp-1)")+ xlab("Year")+
+  geom_smooth(data=metadata[metadata$Type!="Historical",],
+              aes(Year, `Heterozygosity (tv)`, color=Type), method = "lm")+
+  theme(legend.position = "top") + scale_color_manual(values=colors_category[2:3]) + 
+  ggtitle("Heterozygosity vs Year")
+p4
+
+ggarrange(p1,p3,p2,p4)
+ggsave("Manuscript/Plots_supplementary/Revision_figureHetYearDown.pdf", height = 7, width = 10)
+
+
+p4 <- ggplot()
+p4 <- p4+ geom_boxplot(data=metadata,aes(Category, Coverage, color=Type)) +
+  theme_classic() + ylab("Heterozygosity (bp-1)")+ xlab("Year")+
+  theme(legend.position = "top") + scale_color_manual(values=colors_category) + 
+  ggtitle("Heterozygosity vs Year")
+p4
+
+
+# captive and wild with heterozygosity
+p4 <- ggplot()
+p4 <- p4+ geom_point(data=metadata[metadata$Type!="Historical",],aes(Year, `Heterozygosity (tv)`, color=Category)) +
+  theme_classic() + ylab("Heterozygosity (bp-1)")+ xlab("Year")+
+  geom_smooth(data=metadata[metadata$Type!="Historical",],
+              aes(Year, `Heterozygosity (tv - 4x)`, color=Category), method = "lm")+
+  theme(legend.position = "top") + scale_color_manual(values=colors_category_2) + 
+  ggtitle("Heterozygosity vs Year")
+p4
+
+
 # Roh Bar plot
 roh_perc_df_gather3 <- roh_perc_df_gather2[which(roh_perc_df_gather2$key!="Total"&
                                                    roh_perc_df_gather2$key!="Average2" ),]
@@ -311,5 +386,28 @@ pa
 ggsave("Manuscript/Plots_supplementary/FigureS3_barplotROH.pdf", height = 4,width = 13)
 
 
+
+# Correlation between heterozygosity and coverage after downsampling to 10x
+summary(lm(metadata[metadata$Category!="Historical",]$Coverage~metadata[metadata$Category!="Historical",]$`Heterozygosity (all Pos only Modern 10x)`))
+
+p <- ggplot()
+p <- p+ geom_point(data=metadata[metadata$Category!="Historical",],aes(Coverage, `Heterozygosity (all Pos only Modern 10x)`, , color=Type)) +
+  theme_classic() + ylab("Heterozygosity (bp-1)")+ xlab("Coverage (pre-downsampled 10x)")+
+  geom_smooth(data=metadata[metadata$Category!="Historical",],
+              aes(Coverage, `Heterozygosity (all Pos only Modern 10x)`), method = "lm")+
+  theme(legend.position = c(0.1,0.8),legend.title = element_blank()) + scale_color_manual(values=colors_category[2:3]) 
+p
+
+summary(lm(metadata[metadata$Category!="Historical",]$Coverage~metadata[metadata$Category!="Historical",]$`Heterozygosity (all Pos only Modern)`))
+
+p2 <- ggplot()
+p2 <- p2+ geom_point(data=metadata[metadata$Category!="Historical",],aes(Coverage, `Heterozygosity (all Pos only Modern)`, color=Type)) +
+  theme_classic() + ylab("Heterozygosity (bp-1)")+ xlab("Coverage")+
+  geom_smooth(data=metadata[metadata$Category!="Historical",],aes(Coverage, `Heterozygosity (all Pos only Modern)`), method = "lm")+
+  theme(legend.position =  c(0.1,0.8),legend.title = element_blank()) + scale_color_manual(values=colors_category[2:3]) 
+p2
+ggarrange(p2,p, labels=c("A","B"))
+
+ggsave("Manuscript/Plots_supplementary/FigureS10_hetdown10x_modern_R1.pdf", height = 4,width = 12)
 
 
