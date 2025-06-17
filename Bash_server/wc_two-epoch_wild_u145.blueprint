@@ -1,0 +1,25 @@
+#example blueprint file
+#input setting
+popid: WhoopingCranes_u145 # id of the population (no white space)
+nseq: 38 # number of sequences 19*2
+L:  1193504726.234826 # total number of observed nucleic sites, including polymorphic and monomorphic
+whether_folded: true # whethr the SFS is folded (true or false)
+SFS:	231556.889197	265693.539671	292020.635728	276938.381098	230390.190925	218942.165854	187069.235314	178876.013476	172314.524430	163961.788239	148721.806263	151918.876899	139598.411980	133798.763436	130172.524686	133522.161824	134788.542661	128571.531180	64129.717402
+#smallest_size_of_SFS_bin_used_for_estimation: 1 # default is 1; to ignore singletons, uncomment this line and change this number to 2
+#largest_size_of_SFS_bin_used_for_estimation: 15 # default is nseq/2 for folded SFS
+pct_training: 0.67 # percentage of sites for training
+nrand: 4	9	13	18	33	48	42	36 # number of random break points for each try (separated by white space) (nseq-2)/4, (nseq-2)/2, (nseq-2)*3/4, nseq-2
+project_dir: /projects/mjolnir1/people/qvw641/WhoopingCrane/StairwayPlot/WC_u145_13y # project directory
+stairway_plot_dir:  /home/qvw641/bin/stairway_plot_v2.1.1/stairway_plot_es # directory to the stairway plot files
+ninput: 200 # number of input files to be created for each estimation
+#random_seed: 6
+#output setting
+mu: 1.45e-8 # assumed mutation rate per site per generation 10.1126/science.1251385
+year_per_generation: 13 # assumed generation time (in years)
+#plot setting
+plot_title: WhoopingCranes_u145 # title of the plot
+xrange: 0.1,10000 # Time (1k year) range; format: xmin,xmax; "0,0" for default
+yrange: 0,0 # Ne (1k individual) range; format: xmin,xmax; "0,0" for default
+xspacing: 2 # X axis spacing
+yspacing: 2 # Y axis spacing
+fontsize: 12 # Font size
