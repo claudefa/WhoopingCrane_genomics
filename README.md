@@ -1,5 +1,5 @@
 # Whooping Crane Temporal Genomic Analysis
-This is the repository for scripts to produce main and supplementary figures for the paper: **"Persistent genomic erosion in whooping cranes despite demographic recovery"**.
+This is the repository of the scripts to produce main figures and analysis for the paper: **"Persistent genomic erosion in whooping cranes despite demographic recovery"**.
 
 ## Abstract
 
